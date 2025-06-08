@@ -146,6 +146,34 @@ private:
     Brain *brain;
 };
 
+// 优化版的球查找行为，具有更快的转速和智能方向选择
+class RobotFindBall1 : public StatefulActionNode
+{
+public:
+    RobotFindBall1(const string &name, const NodeConfig &config, Brain *_brain) : StatefulActionNode(name, config), brain(_brain) {}
+
+    static PortsList providedPorts()
+    {
+        return {
+            InputPort<double>("vyaw_limit", 1.5, "yaw limit"),
+            InputPort<double>("scan_time", 10.0, "Maximum time to scan in seconds before changing direction"),
+            InputPort<bool>("use_last_ball_pos", true, "Whether to use the last known ball position to guide search direction"),
+        };
+    }
+
+    NodeStatus onStart() override;
+
+    NodeStatus onRunning() override;
+
+    void onHalted() override;
+
+private:
+    double _turnDir; // 1.0 left -1.0 right
+    rclcpp::Time _startTime; // 开始查找的时间
+    rclcpp::Time _lastDirectionChangeTime; // 上次改变方向的时间
+    Brain *brain;
+};
+
 // Chasing the ball: If the ball is behind the robot, it will move around to the back of the ball.
 class Chase : public SyncActionNode
 {
@@ -168,6 +196,30 @@ private:
     Brain *brain;
     string _state;     // circl_back, chase;
     double _dir = 1.0; // 1.0 circle back from left, -1.0  circle back from right
+};
+
+// Enhanced ball chasing with prediction and smooth motion control
+class Chase1 : public SyncActionNode
+{
+public:
+    Chase1(const string &name, const NodeConfig &config, Brain *_brain) : SyncActionNode(name, config), brain(_brain) {}
+
+    static PortsList providedPorts()
+    {
+        return {
+            InputPort<double>("vx_limit", 0.4, "Maximum x velocity for chasing the ball"),
+            InputPort<double>("vy_limit", 0.4, "Maximum y velocity for chasing the ball"),
+            InputPort<double>("vtheta_limit", 0.1, "Maximum angular velocity for real-time direction adjustment while chasing the ball"),
+            InputPort<double>("dist", 1.0, "The target distance behind the ball for chasing it"),
+        };
+    }
+
+    NodeStatus tick() override;
+
+private:
+    Brain *brain;
+    string _state;     // circle_back, chase
+    double _dir = 1.0; // 1.0 circle back from left, -1.0 circle back from right
 };
 
 // After approaching the ball, adjust to the appropriate kicking angle for offense or defense.

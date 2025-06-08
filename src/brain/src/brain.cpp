@@ -666,7 +666,23 @@ void Brain::detectProcessBalls(const vector<GameObject> &ballObjs)
     {
         data->ballDetected = true;
 
+        // 保存上一次的位置和时间
+        data->ball.lastPosToField = data->ball.posToField;
+        data->ball.lastTimePoint = data->ball.timePoint;
+        
+        // 更新当前球的信息
         data->ball = ballObjs[indexRealBall];
+
+        // 计算球的速度
+        if (data->ball.lastTimePoint.nanoseconds() != 0)  // 确保有上一次的位置数据
+        {
+            double dt = (data->ball.timePoint - data->ball.lastTimePoint).seconds();
+            if (dt > 0 && dt < 1.0)  // 确保时间差合理（小于1秒）
+            {
+                data->ball.velocityToField.x = (data->ball.posToField.x - data->ball.lastPosToField.x) / dt;
+                data->ball.velocityToField.y = (data->ball.posToField.y - data->ball.lastPosToField.y) / dt;
+            }
+        }
 
         tree->setEntry<bool>("ball_location_known", true);
     }
@@ -678,6 +694,9 @@ void Brain::detectProcessBalls(const vector<GameObject> &ballObjs)
         data->ball.boundingBox.ymin = 0;
         data->ball.boundingBox.ymax = 0;
         data->ball.confidence = 0;
+        // 清除速度信息
+        data->ball.velocityToField.x = 0;
+        data->ball.velocityToField.y = 0;
     }
 
     data->robotBallAngleToField = atan2(data->ball.posToField.y - data->robotPoseToField.y, data->ball.posToField.x - data->robotPoseToField.x);

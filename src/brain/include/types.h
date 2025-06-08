@@ -75,6 +75,11 @@ struct GameObject
     double range;                    // The straight-line distance from the object to the projection point of the robot's center on the field plane.
     double pitchToRobot, yawToRobot; // The pitch and yaw of the object relative to the front of the robot, in rad. Downward and leftward are positive.
     rclcpp::Time timePoint;          // The time when the object was detected.
+
+    // --- Velocity calculation related fields ---
+    Point lastPosToField;            // Last position in field coordinates
+    rclcpp::Time lastTimePoint;      // Time of last position update
+    Point velocityToField;           // Calculated velocity in field coordinates (m/s)
 };
 
 // 起身

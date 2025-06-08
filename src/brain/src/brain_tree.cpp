@@ -24,7 +24,9 @@ void BrainTree::init()
 
     // Action Nodes
     REGISTER_BUILDER(RobotFindBall)
+    REGISTER_BUILDER(RobotFindBall1)
     REGISTER_BUILDER(Chase)
+    REGISTER_BUILDER(Chase1)
     REGISTER_BUILDER(SimpleChase)
     REGISTER_BUILDER(Adjust)
     REGISTER_BUILDER(Kick)
@@ -644,6 +646,92 @@ void RobotFindBall::onHalted()
     _turnDir = 1.0;
 }
 
+NodeStatus RobotFindBall1::onStart()
+{
+    if (brain->data->ballDetected)
+    {
+        brain->client->setVelocity(0, 0, 0);
+        return NodeStatus::SUCCESS;
+    }
+    
+    // 使用球的历史位置信息来决定初始旋转方向
+    bool useLastBallPos;
+    getInput("use_last_ball_pos", useLastBallPos);
+    
+    if (useLastBallPos && brain->data->ball.timePoint.seconds() > 0) {
+        // 如果球之前被看到过，根据球的位置决定初始旋转方向
+        double ballYaw = atan2(brain->data->ball.posToRobot.y, brain->data->ball.posToRobot.x);
+        _turnDir = (ballYaw > 0) ? 1.0 : -1.0;
+        brain->log->log("debug/find_ball", rerun::TextLog(format(
+            "Using last ball position for initial direction: %.2f", _turnDir
+        )));
+    } else {
+        // 随机选择初始方向
+        _turnDir = ((rand() % 2) == 0) ? 1.0 : -1.0;
+        brain->log->log("debug/find_ball", rerun::TextLog("Random initial direction"));
+    }
+    
+    _startTime = brain->get_clock()->now();
+    _lastDirectionChangeTime = brain->get_clock()->now();
+    
+    return NodeStatus::RUNNING;
+}
+
+NodeStatus RobotFindBall1::onRunning()
+{
+    if (brain->data->ballDetected)
+    {
+        brain->client->setVelocity(0, 0, 0);
+        return NodeStatus::SUCCESS;
+    }
+
+    double vyawLimit, scanTime;
+    getInput("vyaw_limit", vyawLimit);
+    getInput("scan_time", scanTime);
+    
+    // 计算搜索已经进行的时间
+    auto currentTime = brain->get_clock()->now();
+    double elapsedTime = (currentTime - _startTime).seconds();
+    double timeSinceLastDirectionChange = (currentTime - _lastDirectionChangeTime).seconds();
+    
+    // 如果搜索时间超过设定值，改变搜索方向
+    if (timeSinceLastDirectionChange > scanTime) {
+        _turnDir = -_turnDir; // 反转方向
+        _lastDirectionChangeTime = currentTime;
+        
+        // 记录日志
+        brain->log->logToScreen("RobotFindBall1", 
+            format("Changed direction after %.1f seconds, new dir: %.1f", 
+                   timeSinceLastDirectionChange, _turnDir),
+            0x00FFFFFF);
+    }
+    
+    // 根据搜索时间动态调整转速
+    double speedFactor = 1.0;
+    if (elapsedTime > scanTime * 2) {
+        // 长时间未找到球，增加转速
+        speedFactor = 1.2;
+    }
+    
+    // 设置机器人速度，使用更高的转速
+    brain->client->setVelocity(0, 0, vyawLimit * _turnDir * speedFactor);
+    
+    // 记录搜索状态
+    if (int(elapsedTime) % 5 == 0) { // 每5秒记录一次
+        brain->log->logToScreen("RobotFindBall1", 
+            format("Searching for ball: %.1f seconds, dir: %.1f, speed: %.2f", 
+                   elapsedTime, _turnDir, vyawLimit * speedFactor),
+            0x0000FFFF);
+    }
+    
+    return NodeStatus::RUNNING;
+}
+
+void RobotFindBall1::onHalted()
+{
+    _turnDir = 1.0;
+}
+
 NodeStatus SelfLocate::tick()
 {
     string mode = getInput<string>("mode").value();
@@ -846,9 +934,39 @@ NodeStatus TurnOnSpot::onRunning()
         brain->client->setVelocity(0, 0, 0);
         return NodeStatus::SUCCESS;
     }
-
     // else 
-    brain->client->setVelocity(0, 0, (_angle - _cumAngle)*2);
+    // brain->client->setVelocity(0, 0, (_angle - _cumAngle)*2);
+
+    //TODO
+    // 增加速度系数，使旋转更快
+    double speedFactor = 2.5;  // 增加基础速度系数
+    
+    // 当剩余角度较大时使用更高速度，接近目标时逐渐减速
+    double remainingAngle = fabs(_angle - _cumAngle);
+    if (remainingAngle > 1.0) {  // 如果剩余超过1弧度（约57度）
+        speedFactor = 3.0;  // 使用更高的速度
+    }
+    
+    // 计算转向速度，保持原有方向
+    double turnSpeed = (_angle - _cumAngle) * speedFactor;
+    
+    // 设置最小和最大速度限制
+    double minSpeed = 1.5;  // 最小速度提高到1.5 rad/s
+    double maxSpeed = 3.0;  // 最大速度提高到3.0 rad/s
+    
+    if (fabs(turnSpeed) < minSpeed) {
+        turnSpeed = (turnSpeed > 0) ? minSpeed : -minSpeed;
+    }
+    if (fabs(turnSpeed) > maxSpeed) {
+        turnSpeed = (turnSpeed > 0) ? maxSpeed : -maxSpeed;
+    }
+    
+    // 记录日志
+    brain->log->logToScreen("TurnOnSpot",
+        format("Remaining: %.2f, Speed: %.2f", remainingAngle, turnSpeed),
+        0x00FFFFFF);
+    
+    brain->client->setVelocity(0, 0, turnSpeed);
     return NodeStatus::RUNNING;
 }
 
@@ -861,5 +979,135 @@ NodeStatus PrintMsg::tick()
         throw RuntimeError("missing required input [msg]: ", msg.error());
     }
     std::cout << "[MSG] " << msg.value() << std::endl;
+    return NodeStatus::SUCCESS;
+}
+
+NodeStatus Chase1::tick()
+{
+    if (!brain->tree->getEntry<bool>("ball_location_known"))
+    {
+        brain->client->setVelocity(0, 0, 0);
+        return NodeStatus::SUCCESS;
+    }
+
+    double vxLimit, vyLimit, vthetaLimit, dist;
+    getInput("vx_limit", vxLimit);
+    getInput("vy_limit", vyLimit);
+    getInput("vtheta_limit", vthetaLimit);
+    getInput("dist", dist);
+
+    // 获取球的位置和速度信息
+    double ballRange = brain->data->ball.range;
+    double ballYaw = brain->data->ball.yawToRobot;
+    
+    // 预测球的运动
+    double predictTime = 0.5; // 预测0.5秒后的位置
+    
+    // 使用计算好的球速度
+    Pose2D ballVel;
+    ballVel.x = brain->data->ball.velocityToField.x;
+    ballVel.y = brain->data->ball.velocityToField.y;
+
+    // 预测球的位置
+    Pose2D predictedBallPos;
+    predictedBallPos.x = brain->data->ball.posToField.x + ballVel.x * predictTime;
+    predictedBallPos.y = brain->data->ball.posToField.y + ballVel.y * predictTime;
+
+    // 计算目标位置
+    Pose2D target_f, target_r;
+    // double ballSpeed = sqrt(brain->data->ball.velocityToField.x * brain->data->ball.velocityToField.x +
+    //                       brain->data->ball.velocityToField.y * brain->data->ball.velocityToField.y);
+    // 根据球的速度判断是否需要拦截
+    double ballSpeed = sqrt(ballVel.x * ballVel.x + ballVel.y * ballVel.y);
+    bool needIntercept = ballSpeed > 0.5; // 当球速大于0.5m/s时进行拦截
+
+    if (needIntercept) {
+        // 拦截模式：移动到预测位置
+        target_f = predictedBallPos;
+        target_f.x -= dist * 0.8; // 在预测位置前方等待
+    } else {
+        // 常规追球模式
+        if (brain->data->robotPoseToField.x - brain->data->ball.posToField.x > (_state == "chase" ? 1.0 : 0.0))
+        {
+            _state = "circle_back";
+            target_f.x = brain->data->ball.posToField.x - dist;
+
+            // 优化绕球方向选择
+            double robotToBallAngle = atan2(
+                brain->data->ball.posToField.y - brain->data->robotPoseToField.y,
+                brain->data->ball.posToField.x - brain->data->robotPoseToField.x
+            );
+            
+            // 根据机器人到球的角度选择最优绕球方向
+            if (toPInPI(robotToBallAngle) > 0)
+                _dir = 1.0;
+            else
+                _dir = -1.0;
+
+            target_f.y = brain->data->ball.posToField.y + _dir * dist;
+        }
+        else
+        {
+            _state = "chase";
+            target_f.x = brain->data->ball.posToField.x - dist;
+            target_f.y = brain->data->ball.posToField.y;
+        }
+    }
+
+    // 将目标位置转换到机器人坐标系
+    target_r = brain->data->field2robot(target_f);
+
+    // 计算速度
+    double vx = target_r.x;
+    double vy = target_r.y;
+    double vtheta = ballYaw * 2.0;
+
+    // 改进的速度控制因子
+    double distFactor = 1.0 / (1.0 + exp(-4 * (ballRange - 1.0))); // 距离因子，更激进的响应
+    double angleFactor = 1.0 / (1.0 + exp(3 * (fabs(ballYaw) - 0.8))); // 角度因子，更大的容忍角度
+    // double ballSpeed = sqrt(brain->data->ball.velocityToField.x * brain->data->ball.velocityToField.x +
+    //                       brain->data->ball.velocityToField.y * brain->data->ball.velocityToField.y);
+
+    // 添加速度因子，当球速较快时提高响应速度
+    // 使用已经计算过的ballSpeed变量
+    double velocityFactor = 1.0 + 0.5 * (ballSpeed > 0.5 ? ballSpeed : 0.0); // 球速大于0.5m/s时增加响应
+    
+    double speedFactor = distFactor * angleFactor * velocityFactor;
+
+    // 应用速度因子
+    vx *= speedFactor;
+    vy *= speedFactor;
+
+    // 自适应平滑因子，距离近时更敏捷
+    double alpha = 0.8; // 更高的平滑因子，更快的响应
+    static double last_vx = 0, last_vy = 0, last_vtheta = 0;
+    
+    // 当方向改变较大时，减少平滑以提高响应速度
+    if (last_vx * vx < 0 || last_vy * vy < 0) {
+        alpha = 0.9; // 方向改变时使用更大的alpha值
+    }
+    
+    vx = alpha * vx + (1 - alpha) * last_vx;
+    vy = alpha * vy + (1 - alpha) * last_vy;
+    vtheta = alpha * vtheta + (1 - alpha) * last_vtheta;
+
+    // 保存当前速度
+    last_vx = vx;
+    last_vy = vy;
+    last_vtheta = vtheta;
+
+    // 限制速度
+    vx = cap(vx, vxLimit, -vxLimit);
+    vy = cap(vy, vyLimit, -vyLimit);
+    vtheta = cap(vtheta, vthetaLimit, -vthetaLimit);
+
+    // 输出调试信息
+    brain->log->logToScreen("Chase1",
+        format("State: %s, BallRange: %.2f, BallSpeed: %.2f, SpeedFactor: %.2f",
+            _state.c_str(), ballRange, ballSpeed, speedFactor),
+        0x00FF00FF);
+
+    // 设置机器人速度
+    brain->client->setVelocity(vx, vy, vtheta, false, false, false);
     return NodeStatus::SUCCESS;
 }

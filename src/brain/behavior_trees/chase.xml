@@ -7,7 +7,7 @@
                <SubTree ID="CamFindAndTrackBall" _autoremap="true" _while="control_state>=2" />
                <Sequence _while="control_state==3" >
                   <Sequence _while="!ball_location_known" >
-                     <RobotFindBall vyaw_limit="1.5" />
+                     <RobotFindBall1 vyaw_limit="2.0" scan_time="6.0" use_last_ball_pos="true" />
                   </Sequence>
                   <Sequence _while="ball_location_known" >
                      <SimpleChase  stop_dist="1.0" stop_angle="0.3" />
