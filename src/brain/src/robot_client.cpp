@@ -8,6 +8,7 @@
 #include "utils/misc.h"
 
 #include "booster_msgs/message_utils.h"
+#include <sensor_msgs/point_cloud2_iterator.hpp>
 
 void RobotClient::init()
 {
@@ -122,4 +123,97 @@ int RobotClient::moveToPoseOnField(double tx, double ty, double ttheta, double l
     vy = cap(target_r.y, vyLimit, -vyLimit);
     vtheta = cap(target_r.theta, vthetaLimit, -vthetaLimit);
     return setVelocity(vx, vy, vtheta);
+}
+
+int RobotClient::moveToPoseOnField1(double tx, double ty, double ttheta, double longRangeThreshold, double turnThreshold, 
+                                   double vxLimit, double vyLimit, double vthetaLimit, 
+                                   double xTolerance, double yTolerance, double thetaTolerance)
+{
+    // 定义静态变量用于避障
+    static bool isAvoiding = false;
+    static rclcpp::Time avoidStartTime;
+    static const double TURN_DURATION = 2.0;  // 左转持续时间，单位：秒
+    static const double FORWARD_DURATION = 2.0;  // 前进持续时间，单位：秒
+    static bool isTurning = true;  // 用于区分是在左转阶段还是前进阶段
+    
+    // 获取深度图像数据
+    auto depth_image = brain->getLatestDepthImage();
+    
+    // 如果正在避障中，检查是否已经避障足够时间
+    if (isAvoiding) {
+        double elapsedTime = brain->msecsSince(avoidStartTime) / 1000.0; // 转换为秒
+        
+        if (isTurning) {
+            // 左转阶段
+            if (elapsedTime < TURN_DURATION) {
+                // 继续左转
+                return setVelocity(0.0, 0.0, vthetaLimit);
+            } else {
+                // 左转阶段结束，开始前进阶段
+                isTurning = false;
+                avoidStartTime = brain->get_clock()->now();
+                return setVelocity(vxLimit * 0.5, 0.0, 0.0);  // 开始前进，使用一半的速度
+            }
+        } else {
+            // 前进阶段
+            if (elapsedTime < FORWARD_DURATION) {
+                // 继续前进
+                return setVelocity(vxLimit * 0.5, 0.0, 0.0);
+            } else {
+                // 避障完成，重置状态
+                isAvoiding = false;
+                isTurning = true;  // 重置为左转阶段，为下次避障做准备
+                
+                // 重新计算目标方向并继续导航
+                double tarDir = atan2(ty - brain->data->robotPoseToField.y, 
+                                    tx - brain->data->robotPoseToField.x);
+                double faceDir = brain->data->robotPoseToField.theta;
+                double tarDir_r = toPInPI(tarDir - faceDir);
+                return setVelocity(0.0, 0.0, tarDir_r);  // 转向目标点
+            }
+        }
+    }
+    
+    // 检查是否需要开始避障
+    if (depth_image != nullptr) {
+        // 定义感兴趣区域（ROI）
+        int roi_x = depth_image->width / 2 - 50;  // ROI中心区域
+        int roi_y = depth_image->height / 2 - 50;
+        int roi_width = 100;
+        int roi_height = 100;
+        
+        // 计算ROI区域内的平均深度
+        float sum_depth = 0;
+        int valid_points = 0;
+        
+        // 将ROS图像消息转换为OpenCV格式以便处理
+        cv::Mat depth_mat(depth_image->height, depth_image->width, CV_32FC1, 
+                         const_cast<float*>(reinterpret_cast<const float*>(depth_image->data.data())));
+        
+        for (int y = roi_y; y < roi_y + roi_height && y < depth_image->height; y++) {
+            for (int x = roi_x; x < roi_x + roi_width && x < depth_image->width; x++) {
+                float depth = depth_mat.at<float>(y, x);
+                if (depth > 0.01 && depth < 5.0) {  // 忽略0值和异常值
+                    sum_depth += depth;
+                    valid_points++;
+                }
+            }
+        }
+        
+        if (valid_points > 100) {  // 确保有足够多的有效点
+            float avg_depth = sum_depth / valid_points;
+            if (avg_depth < 1.0) {  // 如果1米内有障碍物
+                // 开始避障
+                isAvoiding = true;
+                isTurning = true;  // 从左转阶段开始
+                avoidStartTime = brain->get_clock()->now();
+                return setVelocity(0.0, 0.0, vthetaLimit);  // 开始左转
+            }
+        }
+    }
+    
+    // 如果没有深度图像数据或没有检测到障碍物，使用普通的moveToPose逻辑
+    return moveToPoseOnField(tx, ty, ttheta, longRangeThreshold, turnThreshold,
+                            vxLimit, vyLimit, vthetaLimit,
+                            xTolerance, yTolerance, thetaTolerance);
 }

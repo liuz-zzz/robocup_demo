@@ -5,6 +5,8 @@
 #include <rerun.hpp>
 
 #include <booster_msgs/msg/rpc_req_msg.hpp>
+#include <sensor_msgs/msg/image.hpp>
+#include <opencv2/opencv.hpp>
 
 using namespace std;
 
@@ -55,6 +57,21 @@ public:
      * @return int The return value of the motion control command, 0 represents success.
      */
     int moveToPoseOnField(double tx, double ty, double ttheta, double longRangeThreshold, double turnThreshold, double vxLimit, double vyLimit, double vthetaLimit, double xTolerance, double yTolerance, double thetaTolerance);
+
+    /**
+     * @brief 带避障功能的moveToPoseOnField，使用深度相机检测前方障碍物
+     * 
+     * @param tx, ty, ttheta double, the target Pose, in the Field coordinate system.
+     * @param longRangeThreshold double, when the distance exceeds this value, it is preferred to turn towards the target point and walk over instead of directly adjusting the position.
+     * @param turnThreshold double, when the angle difference between the direction of the target point (note that it is not the final orientation ttheta) and the current angle is greater than this value, first turn to face the target.
+     * @param vxLimit, vyLimit, vthetaLimit double, the upper limits of speeds in each direction, m/s, rad/s.
+     * @param xTolerance, yTolerance, thetaTolerance double, the tolerances for judging that the target point has been reached.
+     * 
+     * @return int The return value of the motion control command, 0 represents success.
+     */
+    int moveToPoseOnField1(double tx, double ty, double ttheta, double longRangeThreshold = 1.0, double turnThreshold = 0.4, 
+                          double vxLimit = 0.3, double vyLimit = 0.2, double vthetaLimit = 0.8,
+                          double xTolerance = 0.1, double yTolerance = 0.1, double thetaTolerance = 0.1);
 
     /**
      * @brief Wave the hand.

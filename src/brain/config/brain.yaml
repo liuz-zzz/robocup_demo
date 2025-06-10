@@ -5,7 +5,7 @@ brain_node:
       player_id: 0 # 0 | 1 | 2 | 3
       field_type: "adult_size" # adult_size | kid_size 
       player_role: "striker" # striker | goal_keeper
-      player_start_pos: "left" # right | left
+      player_start_pos: "right" # right | left
       
     robot:
       robot_height: 1.0
@@ -17,5 +17,5 @@ brain_node:
 
     rerunLog:
       enable: false
-      server_addr: "127.0.0.1:9876"
+      server_addr: "192.168.30.188:9876"
       img_interval: 1

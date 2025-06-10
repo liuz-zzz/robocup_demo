@@ -65,6 +65,7 @@ void Brain::init()
     odometerSubscription = create_subscription<booster_interface::msg::Odometer>("/odometer_state", 1, bind(&Brain::odometerCallback, this, _1));
     lowStateSubscription = create_subscription<booster_interface::msg::LowState>("/low_state", 1, bind(&Brain::lowStateCallback, this, _1));
     imageSubscription = create_subscription<sensor_msgs::msg::Image>("/camera/camera/color/image_raw", 1, bind(&Brain::imageCallback, this, _1));
+    depthImageSubscription = create_subscription<sensor_msgs::msg::Image>("/camera/camera/aligned_depth_to_color/image_raw", 1, bind(&Brain::depthImageCallback, this, _1));
     headPoseSubscription = create_subscription<geometry_msgs::msg::Pose>("/head_pose", 1, bind(&Brain::headPoseCallback, this, _1));
     recoveryStateSubscription = create_subscription<booster_interface::msg::RawBytesMsg>("fall_down_recovery_state", 1, bind(&Brain::recoveryStateCallback, this, _1));
 
@@ -720,4 +721,12 @@ void Brain::detectProcessMarkings(const vector<GameObject> &markingObjs)
 
         data->markings.push_back(marking);
     }
+}
+
+void Brain::depthImageCallback(const sensor_msgs::msg::Image::SharedPtr msg)
+{
+    latest_depth_image = msg;
+    log->setTimeNow();
+    log->log("Brain/depth_image", rerun::TextLog(format("Received depth image: width=%d, height=%d", 
+                                                       msg->width, msg->height)));
 }

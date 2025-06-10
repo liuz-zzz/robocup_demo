@@ -858,7 +858,7 @@ NodeStatus MoveToPoseOnField::tick()
     getInput("y_tolerance", yTolerance);
     getInput("theta_tolerance", thetaTolerance);
 
-    brain->client->moveToPoseOnField(tx, ty, ttheta, longRangeThreshold, turnThreshold, vxLimit, vyLimit, vthetaLimit, xTolerance, yTolerance, thetaTolerance);
+    brain->client->moveToPoseOnField1(tx, ty, ttheta, longRangeThreshold, turnThreshold, vxLimit, vyLimit, vthetaLimit, xTolerance, yTolerance, thetaTolerance);
     return NodeStatus::SUCCESS;
 }
 
