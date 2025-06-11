@@ -33,7 +33,7 @@
 
                         <ReactiveSequence _while="gc_game_state=='READY'" name="ready">
                             <CamScanField />
-                            <MoveToPoseOnField x="-2.0" _while="player_role == 'striker'" vtheta_limit="2.0"  vx_limit="0.4" />
+                            <MoveToPoseOnField x="-2.0" _while="player_role == 'striker'" vtheta_limit="2.0"  vx_limit="10.0" vy_limit="10.0"/>
                             <MoveToPoseOnField x="-5.5" _while="player_role == 'goal_keeper'" vtheta_limit="2.0"  vx_limit="0.4" />
                             <SelfLocate mode="trust_direction" />
                             <WaveHand _while="we_just_scored" action="start" />

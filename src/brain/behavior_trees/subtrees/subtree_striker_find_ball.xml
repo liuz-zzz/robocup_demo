@@ -9,7 +9,7 @@
         </ReactiveSequence>
         
         <!-- 先快速旋转找球 -->
-        <RobotFindBall1 vyaw_limit="2.0" scan_time="5.0" use_last_ball_pos="true" />
+        <RobotFindBall1 vyaw_limit="10.0" scan_time="5.0" use_last_ball_pos="true" />
         
         <!-- 如果快速旋转没找到，尝试精确的180度转向，使用更高的速度 -->
         <Sequence _while="!ball_location_known">
@@ -19,7 +19,7 @@
         <!-- 如果还是没找到，移动到更好的位置继续找 -->
         <Sequence _while="!ball_location_known">
           <MoveToPoseOnField x="-2.0" vtheta_limit="2.0" vx_limit="0.4" />
-          <RobotFindBall1 vyaw_limit="1.8" scan_time="6.0" use_last_ball_pos="true" />
+          <RobotFindBall1 vyaw_limit="10.0" scan_time="6.0" use_last_ball_pos="true" />
         </Sequence>
       </Sequence>
   </BehaviorTree>

@@ -76,6 +76,12 @@ int RobotClient::setVelocity(double x, double y, double theta, bool applyMinX, b
     brain->log->log("RobotClient/setVelocity_out",
                     rerun::TextLog(format("vx: %.2f  vy: %.2f  vtheta: %.2f", x, y, theta)));
 
+
+    //在黑板上更新实时速度值
+    brain->tree->setEntry<double>("Vx_now",x);
+    brain->tree->setEntry<double>("Vy_now",y);
+    brain->tree->setEntry<double>("yaw_now",theta);
+
     auto msg = booster_msgs::CreateMoveMsg(x, y, theta);
     publisher->publish(msg);
     return 0;
