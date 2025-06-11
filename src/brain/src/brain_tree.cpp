@@ -83,6 +83,12 @@ void BrainTree::initEntry()
 
     setEntry<bool>("we_just_scored", false);
     setEntry<bool>("wait_for_opponent_kickoff", false);
+
+    //调试相关：
+    setEntry<double>("Vx_now",0);
+    setEntry<double>("Vy_now",0);
+    setEntry<double>("yaw_now",0);
+
 }
 
 void BrainTree::tick()
@@ -92,12 +98,18 @@ void BrainTree::tick()
     // print states
     if (cnt % 30 == 0)
         prtDebug(format(
-            "GameState: %s\tIsKickOffSide: %d\nScore: %d\t JustScored: %d",
+            "GameState: %s\tIsKickOffSide: %d\nScore: %d\t JustScored: %d\nball_range:%f\tVx_now:%f\tVy_now:%f\tyaw_now:%f\n decide_now:%s",
             getEntry<string>("gc_game_state").c_str(),
             getEntry<bool>("gc_is_kickoff_side"),
             brain->data->lastScore,
-            getEntry<bool>("we_just_scored")));
+            getEntry<bool>("we_just_scored"),
+            getEntry<double>("ball_range"),
+            getEntry<double>("Vx_now"),
+            getEntry<double>("Vy_now"),
+            getEntry<double>("yaw_now"),
+            getEntry<string>("decision").c_str()
 
+             ));
     tree.tickOnce();
 }
 
