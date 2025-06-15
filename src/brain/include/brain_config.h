@@ -64,10 +64,10 @@ public:
     // Speed limit
     // double vxLimit = 1.2;
     // double vyLimit = 0.4;    
-    double vxLimit = 2.0;
-    double vyLimit = 0.8;
+    double vxLimit = 10.0;
+    double vyLimit = 10.0;
     // double vthetaLimit = 1.5;    
-    double vthetaLimit = 2.0;
+    double vthetaLimit = 10.0;
 
     // Strategy parameters
     double safeDist = 2.0; // Safety distance for collision detection. If the distance is smaller than this value, a collision is considered.
