@@ -515,6 +515,26 @@ public:
 private:
     Brain *brain;
 };
+// 使用本地 tts (espeak) 朗读文本
+class Speak : public SyncActionNode
+{
+public:
+    Speak(const std::string &name, const NodeConfig &config, Brain *_brain) : SyncActionNode(name, config), brain(_brain)
+    {
+    }
+
+    NodeStatus tick() override;
+
+    static BT::PortsList providedPorts()
+    {
+        return {
+            InputPort<string>("text", "", "朗读的文本内容"),
+        };
+    }
+
+private:
+    Brain *brain;
+};
 
 // ------------------------------- FOR DEBUG -------------------------------
 class PrintMsg : public SyncActionNode

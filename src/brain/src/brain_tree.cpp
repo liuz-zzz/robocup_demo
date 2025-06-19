@@ -43,7 +43,8 @@ void BrainTree::init()
     REGISTER_BUILDER(WaveHand)
     REGISTER_BUILDER(GoBackInField)
     REGISTER_BUILDER(TurnOnSpot)
-
+    // 添加speak节点
+    REGISTER_BUILDER(Speak)
     // Action Nodes for debug
     REGISTER_BUILDER(PrintMsg)
 
@@ -1121,5 +1122,12 @@ NodeStatus Chase1::tick()
 
     // 设置机器人速度
     brain->client->setVelocity(vx, vy, vtheta, false, false, false);
+    return NodeStatus::SUCCESS;
+}
+NodeStatus Speak::tick()
+{
+    string text;
+    getInput("text", text);
+    brain->speak(text, forceRepeat);
     return NodeStatus::SUCCESS;
 }

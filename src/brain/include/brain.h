@@ -70,6 +70,8 @@ public:
     void calibrateOdom(double x, double y, double theta);
 
     double msecsSince(rclcpp::Time time);
+    // 处理espeak的发布
+    void speak(string text);
 
 private:
     void loadConfig();

@@ -721,3 +721,18 @@ void Brain::detectProcessMarkings(const vector<GameObject> &markingObjs)
         data->markings.push_back(marking);
     }
 }
+void Brain::speak(std::string text)
+{
+    if (!config->speakEnable) return;
+    static std::string _lastText;
+    
+    bool isRepeat = (_lastText == text);
+    // 检查是否重复、太快、又不是强制要求说
+    if (isRepeat)
+        return;
+    _lastText = text;
+
+    std_msgs::msg::String msg;
+    msg.data = text;
+    pubSpeak->publish(msg);
+}
