@@ -29,6 +29,7 @@ void BrainTree::init()
     REGISTER_BUILDER(Chase1)
     REGISTER_BUILDER(SimpleChase)
     REGISTER_BUILDER(Adjust)
+    REGISTER_BUILDER(Adjust1)
     REGISTER_BUILDER(Kick)
     REGISTER_BUILDER(StrikerDecide)
     REGISTER_BUILDER(CamTrackBall)
@@ -362,6 +363,81 @@ NodeStatus Adjust::tick()
 
     brain->client->setVelocity(vx, vy, vtheta);
     return NodeStatus::SUCCESS;
+}
+NodeStatus Adjust1::tick()
+{
+if (!brain->tree->getEntry<bool>("ball_location_known"))
+{
+return NodeStatus::SUCCESS;
+}
+
+double turnThreshold, vxLimit, vyLimit, vthetaLimit, maxRange, minRange;
+getInput("turn_threshold", turnThreshold);
+getInput("vx_limit", vxLimit);
+getInput("vy_limit", vyLimit);
+getInput("vtheta_limit", vthetaLimit);
+getInput("max_range", maxRange);
+getInput("min_range", minRange);
+string position;
+getInput("position", position);
+
+double vx = 0, vy = 0, vtheta = 0;
+double kickDir = (position == "defense") ? atan2(brain->data->ball.posToField.y, brain->data->ball.posToField.x + brain->config->fieldDimensions.length / 2) : atan2(-brain->data->ball.posToField.y, brain->config->fieldDimensions.length / 2 - brain->data->ball.posToField.x);
+double dir_rb_f = brain->data->robotBallAngleToField;
+double deltaDir = toPInPI(kickDir - dir_rb_f);
+double dir = deltaDir > 0 ? -1.0 : 1.0;
+double ballRange = brain->data->ball.range;
+double ballYaw = brain->data->ball.yawToRobot;
+
+// 增加速度系数，提高响应速度
+double s = 0.7; // 原来是0.4，提高到0.7
+double r = 0.6; // 原来是0.8，减小到0.6以提高旋转速度
+
+// 计算角度差的绝对值，用于调整速度
+double absDeltaDir = fabs(deltaDir);
+
+// 根据角度差动态调整速度系数
+// 角度差越大，速度系数越大，以加快调整
+double speedFactor = 1.0 + absDeltaDir * 0.5; // 最大可达到1.0 + π * 0.5 ≈ 2.57
+s *= speedFactor;
+
+// 计算前进/后退速度
+vx = -s * dir * sin(ballYaw);
+
+// 根据与目标距离的差值更激进地调整前进/后退速度
+if (ballRange > maxRange)
+vx += 0.3; // 原来是0.1，提高到0.3
+else if (ballRange < minRange)
+vx -= 0.3; // 原来是0.1，提高到0.3
+
+// 计算横向移动速度
+vy = s * dir * cos(ballYaw);
+
+// 计算旋转速度，更激进地调整方向
+vtheta = (ballYaw - dir * s) / r;
+
+// 当角度差较大时，优先调整方向
+if (absDeltaDir > 0.5) { // 角度差超过约30度
+// 增加旋转分量
+vtheta *= 1.5;
+// 减小线性运动分量，以避免过度移动
+vx *= 0.8;
+vy *= 0.8;
+}
+
+// 应用速度限制
+vx = cap(vx, vxLimit, -vxLimit);
+vy = cap(vy, vyLimit, -vyLimit);
+vtheta = cap(vtheta, vthetaLimit, -vthetaLimit);
+
+// 记录调试信息
+brain->log->logToScreen("Adjust",
+format("Delta: %.2f, Range: %.2f, Speed: [%.2f, %.2f, %.2f]",
+deltaDir, ballRange, vx, vy, vtheta),
+0x00FFFFFF);
+
+brain->client->setVelocity(vx, vy, vtheta);
+return NodeStatus::SUCCESS;
 }
 
 NodeStatus StrikerDecide::tick()
@@ -1128,6 +1204,6 @@ NodeStatus Speak::tick()
 {
     string text;
     getInput("text", text);
-    brain->speak(text, forceRepeat);
+    brain->speak(text);
     return NodeStatus::SUCCESS;
 }

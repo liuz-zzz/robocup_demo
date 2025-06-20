@@ -20,7 +20,7 @@ setup(
     tests_require=['pytest'],
     entry_points={
         'console_scripts': [
-             'speak_node = speak.speak_node:main',
+            'speak_node = speak.speak_node:main',
         ],
     },
 )

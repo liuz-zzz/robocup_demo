@@ -67,7 +67,7 @@ void Brain::init()
     imageSubscription = create_subscription<sensor_msgs::msg::Image>("/camera/camera/color/image_raw", 1, bind(&Brain::imageCallback, this, _1));
     headPoseSubscription = create_subscription<geometry_msgs::msg::Pose>("/head_pose", 1, bind(&Brain::headPoseCallback, this, _1));
     recoveryStateSubscription = create_subscription<booster_interface::msg::RawBytesMsg>("fall_down_recovery_state", 1, bind(&Brain::recoveryStateCallback, this, _1));
-
+    pubSpeak = create_publisher<std_msgs::msg::String>("/speak", 10);
 }
 
 void Brain::loadConfig()
@@ -723,7 +723,6 @@ void Brain::detectProcessMarkings(const vector<GameObject> &markingObjs)
 }
 void Brain::speak(std::string text)
 {
-    if (!config->speakEnable) return;
     static std::string _lastText;
     
     bool isRepeat = (_lastText == text);

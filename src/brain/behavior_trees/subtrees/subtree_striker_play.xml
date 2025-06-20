@@ -13,7 +13,7 @@
             <Sequence>
                   <ReactiveSequence>
                      <SelfLocate mode="trust_direction" />
-                     <StrikerDecide decision_out="{decision}" decision_in="{decision}" chase_threshold="1.2" />
+                     <StrikerDecide decision_out="{decision}" decision_in="{decision}" chase_threshold="1.5" />
                      <SelfLocate mode="trust_direction" />
                      <!-- <SubTree ID="FindBall" _while="decision=='find'" _autoremap="true" /> -->
                      <Fallback _while="decision=='find'">
@@ -27,14 +27,18 @@
                   <SelfLocate mode="trust_direction" />
                   <!-- <Chase   _while="decision == 'chase'"  vx_limit="1.0"  vy_limit="0.4"  vtheta_limit="1.0"  dist="1.0"/> -->
                   <!-- <Chase1   _while="decision == 'chase'"  vx_limit="2.0"  vy_limit="1.2"  vtheta_limit="2.0"  dist="1.0"/> -->
-                  <Chase1   _while="decision == 'chase'"  vx_limit="2.5"  vy_limit="1.5"  vtheta_limit="2.5"  dist="1.0"/>
+                  <Speak _while="decision == 'chase'" text="chase"/>
+                  <Chase1   _while="decision == 'chase'"  vx_limit="20.5"  vy_limit="10.5"  vtheta_limit="20.5"  dist="1.4"/>
                   <SelfLocate mode="trust_direction" /> 
-                  <Adjust  _while="decision == 'adjust'"     turn_threshold="0.4" max_range="0.6" min_range="0.4" vx_limit="0.5" vy_limit="0.5" vtheta_limit="1.2"  />
+                  <Speak _while="decision == 'adjust'" text="adjust"/>
+                  <!-- <Adjust  _while="decision == 'adjust'"     turn_threshold="0.4" max_range="0.6" min_range="0.4" vx_limit="10.5" vy_limit="10.5" vtheta_limit="10.2"  /> -->
+                  <Adjust1  _while="decision == 'adjust'"     turn_threshold="0.4" max_range="0.6" min_range="0.4" vx_limit="10.5" vy_limit="10.5" vtheta_limit="10.2"  />
                   <SelfLocate mode="trust_direction" />
+                  <Speak _while="decision == 'kick'" text="kick"/>
                   <Sequence  _while="decision == 'kick'">
-                     <SetVelocity />
-                     <Sleep msec="500" />
-                     <Kick vx_limit="1.2" vy_limit="0.2" min_msec_kick="1000"/>
+                     <!-- <SetVelocity />
+                     <Sleep msec="500" /> -->
+                     <Kick vx_limit="10.2" vy_limit="10.2" min_msec_kick="1000"/>
                   </Sequence>
             </Sequence>
          </ReactiveSequence>
