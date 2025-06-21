@@ -688,7 +688,48 @@ void Brain::detectProcessBalls(const vector<GameObject> &ballObjs)
     }
     else
     {
-        data->ballDetected = false;
+        // 如果自己没找到球，且不是player 1，尝试使用共享的球位置
+        if (config->playerId != 1) {
+            double sharedBallX, sharedBallY;
+            if (getSharedBallPosition(sharedBallX, sharedBallY)) {
+                // 使用共享的球位置
+                data->ballDetected = true;
+                data->ball.posToField.x = sharedBallX;
+                data->ball.posToField.y = sharedBallY;
+                data->ball.timePoint = get_clock()->now();
+                
+                // 计算相对于机器人的位置
+                double robotX = data->robotPoseToField.x;
+                double robotY = data->robotPoseToField.y;
+                double robotTheta = data->robotPoseToField.theta;
+                
+                // 从场地坐标转换到机器人坐标
+                double dx = sharedBallX - robotX;
+                double dy = sharedBallY - robotY;
+                data->ball.posToRobot.x = dx * cos(-robotTheta) - dy * sin(-robotTheta);
+                data->ball.posToRobot.y = dx * sin(-robotTheta) + dy * cos(-robotTheta);
+                
+                data->ball.range = norm(data->ball.posToRobot.x, data->ball.posToRobot.y);
+                data->ball.yawToRobot = atan2(data->ball.posToRobot.y, data->ball.posToRobot.x);
+                data->ball.pitchToRobot = atan2(config->robotHeight, data->ball.range);
+                
+                tree->setEntry<bool>("ball_location_known", true);
+                
+                // 语音调试信息
+                string debugMsg = format("Player %d using shared ball position: (%.1f, %.1f)", 
+                                       config->playerId, sharedBallX, sharedBallY);
+                speak(debugMsg);
+                
+                cout << YELLOW_CODE << debugMsg << RESET_CODE << endl;
+            } else {
+                data->ballDetected = false;
+                tree->setEntry<bool>("ball_location_known", false);
+            }
+        } else {
+            data->ballDetected = false;
+            tree->setEntry<bool>("ball_location_known", false);
+        }
+        
         data->ball.boundingBox.xmin = 0;
         data->ball.boundingBox.xmax = 0;
         data->ball.boundingBox.ymin = 0;
@@ -734,4 +775,25 @@ void Brain::speak(std::string text)
     std_msgs::msg::String msg;
     msg.data = text;
     pubSpeak->publish(msg);
+}
+
+bool Brain::getSharedBallPosition(double& x, double& y)
+{
+    if (!communication) {
+        return false;
+    }
+    
+    // 检查共享球位置是否过期
+    if (communication->isSharedBallExpired()) {
+        return false;
+    }
+    
+    auto sharedBallInfo = communication->getSharedBallInfo();
+    if (!sharedBallInfo.detected) {
+        return false;
+    }
+    
+    x = sharedBallInfo.x;
+    y = sharedBallInfo.y;
+    return true;
 }

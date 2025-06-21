@@ -332,6 +332,28 @@ void BrainCommunication::unicastCommunication() {
         msg.communicationId = _team_communication_msg_id++;
         msg.teamId = brain->config->teamId;
         msg.playerId = brain->config->playerId;
+        
+        // 只有player 1共享球位置信息
+        if (brain->config->playerId == 1) {
+            // 获取当前球的位置信息
+            msg.ballDetected = brain->data.ballDetected;
+            if (brain->data.ballDetected) {
+                msg.ballX = brain->data.ball.posToField.x;
+                msg.ballY = brain->data.ball.posToField.y;
+                msg.ballTime = brain->data.ball.timePoint;
+            } else {
+                msg.ballX = 0.0;
+                msg.ballY = 0.0;
+                msg.ballTime = brain->get_clock()->now();
+            }
+        } else {
+            // 其他球员不共享球位置
+            msg.ballDetected = false;
+            msg.ballX = 0.0;
+            msg.ballY = 0.0;
+            msg.ballTime = brain->get_clock()->now();
+        }
+        
         // TODO: add something you want to send to teammates, this is only an example
         msg.testInfo = 1234567; 
 
@@ -428,6 +450,20 @@ void BrainCommunication::spinCommunicationReceiver() {
             continue;
         } 
 
+        // 处理共享球位置信息
+        if (msg.playerId == 1 && msg.ballDetected) {
+            std::lock_guard<std::mutex> lock(_shared_ball_mutex);
+            _shared_ball_info.detected = true;
+            _shared_ball_info.x = msg.ballX;
+            _shared_ball_info.y = msg.ballY;
+            _shared_ball_info.time = msg.ballTime;
+            _shared_ball_info.sharedByPlayerId = msg.playerId;
+            
+            cout << GREEN_CODE << format(
+                "Received ball position from player %d: (%.2f, %.2f) at time %.3f",
+                msg.playerId, msg.ballX, msg.ballY, msg.ballTime.seconds())
+                << RESET_CODE << endl;
+        }
 
         // TODO: dealing with the received message
     }
@@ -444,4 +480,19 @@ void BrainCommunication::clearupCommunicationReceiver() {
     if (_communication_recv_thread.joinable()) {
         _communication_recv_thread.join();
     }
+}
+
+BrainCommunication::SharedBallInfo BrainCommunication::getSharedBallInfo() {
+    std::lock_guard<std::mutex> lock(_shared_ball_mutex);
+    return _shared_ball_info;
+}
+
+bool BrainCommunication::isSharedBallExpired() {
+    std::lock_guard<std::mutex> lock(_shared_ball_mutex);
+    if (!_shared_ball_info.detected) {
+        return true;
+    }
+    
+    auto timeDiff = brain->get_clock()->now().nanoseconds() - _shared_ball_info.time.nanoseconds();
+    return timeDiff > SHARED_BALL_TIMEOUT_MS * 1e6;
 }

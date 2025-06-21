@@ -31,6 +31,11 @@ public:
     
     void initUDPBroadcast();
 
+    // 获取共享球位置的方法
+    SharedBallInfo getSharedBallInfo();
+    // 检查球位置是否过期
+    bool isSharedBallExpired();
+
 private:
     Brain *brain;
 
@@ -99,4 +104,16 @@ private:
     std::thread _communication_recv_thread;
     int _communication_recv_socket = -1;
     int _communication_recv_port = 0;
+
+    // 共享球位置相关
+    struct SharedBallInfo {
+        bool detected = false;
+        double x = 0.0;
+        double y = 0.0;
+        rclcpp::Time time;
+        int sharedByPlayerId = -1;
+    };
+    SharedBallInfo _shared_ball_info;
+    std::mutex _shared_ball_mutex;
+    static constexpr int SHARED_BALL_TIMEOUT_MS = 5000; // 5秒超时
 };

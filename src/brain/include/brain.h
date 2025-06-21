@@ -72,6 +72,9 @@ public:
     double msecsSince(rclcpp::Time time);
     // 处理espeak的发布
     void speak(string text);
+    
+    // 获取共享球位置的方法
+    bool getSharedBallPosition(double& x, double& y);
 
 private:
     void loadConfig();
